@@ -1,4 +1,4 @@
-from .endpoint import Endpoint
+from .endpoint import Endpoint, PreMiddleware, PostMiddleware
 
 
 def get_endpoint(obj):
@@ -10,6 +10,8 @@ def get_endpoint(obj):
 
 class Controller:
     __name__ = None
+    pre_middlewares: list[PreMiddleware] = []
+    post_middlewares: list[PostMiddleware] = []
 
     def get_endpoints(self):
         endpoints = []
@@ -17,5 +19,7 @@ class Controller:
             ep = get_endpoint(element)
             if ep is not None:
                 ep.callback = getattr(self, name)
+                ep.pre_middleware = self.pre_middlewares + ep.pre_middleware
+                ep.post_middleware = ep.post_middleware + self.post_middlewares
                 endpoints.append(ep)
         return endpoints
