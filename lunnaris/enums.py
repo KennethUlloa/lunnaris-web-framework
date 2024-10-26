@@ -1,6 +1,11 @@
 from enum import StrEnum, IntEnum
 
 
+class EnumComparer:
+    def is_in(cls, value) -> bool:
+        return len([val for val in cls]) > 0
+
+
 class MimeType(StrEnum):
     HTML = "text/html"
     PLAIN = "text/plain"
@@ -18,7 +23,7 @@ class MimeType(StrEnum):
     UNKNOWN = "application/octet-stream"
 
 
-class HttpMethod(StrEnum):
+class Method(StrEnum):
     GET = "GET"
     POST = "POST"
     PUT = "PUT"
@@ -71,7 +76,8 @@ class Header(StrEnum):
     WWW_AUTHENTICATE = "WWW-Authenticate"
 
 
-class StatusCode(IntEnum):
+class Status(IntEnum):
+    # Success
     CONTINUE = 100
     SWITCHING_PROTOCOLS = 101
     PROCESSING = 102
@@ -95,6 +101,7 @@ class StatusCode(IntEnum):
     SWITCH_PROXY = 306
     TEMPORARY_REDIRECT = 307
     PERMANENT_REDIRECT = 308
+    # Error
     BAD_REQUEST = 400
     UNAUTHORIZED = 401
     PAYMENT_REQUIRED = 402
@@ -124,6 +131,7 @@ class StatusCode(IntEnum):
     TOO_MANY_REQUESTS = 429
     REQUEST_HEADER_FIELDS_TOO_LARGE = 431
     UNAVAILABLE_FOR_LEGAL_REASONS = 451
+    # Server error
     INTERNAL_SERVER_ERROR = 500
     NOT_IMPLEMENTED = 501
     BAD_GATEWAY = 502

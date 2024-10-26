@@ -1,10 +1,10 @@
-from .endpoint import Endpoint
+from .handler import RequestHandler
 
 class RouteNode:
     children: dict = {}
     is_terminal: bool = False
     param_name: str | None = None
-    handler: dict[str, Endpoint] = {}
+    handler: dict[str, RequestHandler] = {}
 
 
 class RouteMatcher:
@@ -12,7 +12,7 @@ class RouteMatcher:
     def __init__(self):
         self.root = RouteNode()
 
-    def add_route(self, handler: Endpoint):
+    def add_route(self, handler: RequestHandler):
         current_node: RouteNode = self.root
         segments = handler.path.strip("/").split("/")
 

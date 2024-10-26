@@ -1,7 +1,7 @@
-from lunnarisweb.application import WebApplication
-from lunnarisweb.controller import Controller
-from lunnarisweb.endpoint import get, post
-from lunnarisweb.request import Body
+from lunnaris.application import WebApplication
+from lunnaris.controller import Controller
+from lunnaris.handler import get, post
+from lunnaris.request import Json
 
 
 def pre_middleware(req):
@@ -28,7 +28,7 @@ class ExampleController(Controller):
         self.service = service
 
     @post("", status_code=201)
-    def get_example(self, data: ClientModel = Body):
+    def get_example(self, data: ClientModel = Json):
         return self.service(data)
 
     @get("/{name}")
@@ -44,7 +44,4 @@ def service(data: ClientModel):
     return f"Hello, {data.name}! You are {data.age} years old."
 
 
-app = WebApplication()
-controller = ExampleController(service)
-
-app.add_controller(controller)
+1

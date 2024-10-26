@@ -1,11 +1,4 @@
-from .endpoint import Endpoint, PreMiddleware, PostMiddleware
-
-
-def get_endpoint(obj):
-    ep = getattr(obj, '__endpoint__', None)
-    if not isinstance(ep, Endpoint):
-        return None
-    return ep
+from .handler import PreMiddleware, PostMiddleware, get_handler
 
 
 class Controller:
@@ -13,15 +6,15 @@ class Controller:
     pre_middlewares: list[PreMiddleware] = []
     post_middlewares: list[PostMiddleware] = []
 
-    def get_endpoints(self):
+    def get_handlers(self):
         endpoints = []
         for name, element in vars(self.__class__).items():
-            ep = get_endpoint(element)
+            ep = get_handler(element)
             if ep is not None:
                 if self.__name__:
                     ep.path = f"/{self.__name__}{ep.path}"
                 ep.callback = getattr(self, name)
-                ep.pre_middleware = self.pre_middlewares + ep.pre_middleware
-                ep.post_middleware = ep.post_middleware + self.post_middlewares
+                ep.add_post_middlewares(self.post_middlewares, 'after')
+                ep.add_pre_middlewares(self.pre_middlewares, 'before')
                 endpoints.append(ep)
         return endpoints
