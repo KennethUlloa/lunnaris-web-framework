@@ -3,8 +3,9 @@ from .handler import PreMiddleware, PostMiddleware, get_handler
 
 class Controller:
     __name__ = None
-    pre_middlewares: list[PreMiddleware] = []
-    post_middlewares: list[PostMiddleware] = []
+    def __init__(self) -> None:
+        self.pre_middlewares: list[PreMiddleware] = []
+        self.post_middlewares: list[PostMiddleware] = []
 
     def get_handlers(self):
         endpoints = []

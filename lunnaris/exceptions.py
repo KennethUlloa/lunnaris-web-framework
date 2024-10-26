@@ -3,16 +3,16 @@ class HttpException(Exception):
     title: str
     body: bytes | str
 
-    def __init__(self, message: str, code: int, body: bytes | str) -> None:
-        super().__init__(f"{code} - {message}")
+    def __init__(self, title: str, code: int, body: bytes | str) -> None:
+        super().__init__(f"{code} - {title}")
         self.code = code
-        self.message = message
+        self.title = title
         self.body = body
 
 
 class DefinedHttpException(HttpException):
     def __init__(self, body: bytes | str = b""):
-        super().__init__(self.message, self.code, body)
+        super().__init__(self.title, self.code, body)
 
 
 class BadRequest(DefinedHttpException):
@@ -27,6 +27,7 @@ class Unauthorized(DefinedHttpException):
 
 class Forbidden(DefinedHttpException):
     code = 403
+    title = "Forbidden"
 
 
 class NotFound(DefinedHttpException):

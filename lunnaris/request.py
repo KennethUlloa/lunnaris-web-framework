@@ -9,13 +9,6 @@ T = TypeVar("T")
 
 
 class Request:
-    method: str
-    path: str
-    headers: MappingProxyType[str, str]
-    body: bytes | str | None
-    query: MappingProxyType[str, str]
-    params: MappingProxyType[str, str]
-
     def __init__(
         self,
         method: str,

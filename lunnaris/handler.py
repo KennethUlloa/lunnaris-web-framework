@@ -21,13 +21,14 @@ The argument and return type are the same. This is used to modify the response b
 
 
 class RequestHandler:
-    path: str
-    method: str
-    callback: Callable
-    status_code: int = 200
-    headers: dict[str, str] = {}
-    pre_middleware: list[PreMiddleware] = []
-    post_middleware: list[PostMiddleware] = []
+    def __init__(self):
+        self.path: str = None
+        self.method: str
+        self.callback: Callable
+        self.status_code: int = 200
+        self.headers: dict[str, str] = {}
+        self.pre_middleware: list[PreMiddleware] = []
+        self.post_middleware: list[PostMiddleware] = []
 
     def __call__(self, request: Request):
         req = self._process_pre_middleware(request)

@@ -1,4 +1,4 @@
-from lunnaris.application import WebApplication
+from lunnaris.application import Application
 from lunnaris.controller import Controller
 from lunnaris.handler import get, post
 from lunnaris.request import Json
@@ -42,6 +42,3 @@ class ExampleController(Controller):
 
 def service(data: ClientModel):
     return f"Hello, {data.name}! You are {data.age} years old."
-
-
-1

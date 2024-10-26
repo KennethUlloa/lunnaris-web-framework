@@ -1,14 +1,16 @@
 from .handler import RequestHandler
 
 class RouteNode:
-    children: dict = {}
-    is_terminal: bool = False
-    param_name: str | None = None
-    handler: dict[str, RequestHandler] = {}
+    def __init__(self):
+        self.children = {}  # Inicializa children como un diccionario de instancia
+        self.is_terminal = False
+        self.param_name = None
+        self.handler = {}  # Inicializa handler como un diccionario de instancia
 
+    def __str__(self) -> str:
+        return f"Node({self.children}, {self.is_terminal})"
 
 class RouteMatcher:
-    root: RouteNode
     def __init__(self):
         self.root = RouteNode()
 
@@ -51,3 +53,6 @@ class RouteMatcher:
                 params,
             )  # Devolvemos la función asociada y los parámetros
         return None
+
+    def __str__(self) -> str:
+        return str(self.root.children)
