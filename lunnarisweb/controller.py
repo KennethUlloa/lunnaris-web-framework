@@ -18,6 +18,8 @@ class Controller:
         for name, element in vars(self.__class__).items():
             ep = get_endpoint(element)
             if ep is not None:
+                if self.__name__:
+                    ep.path = f"/{self.__name__}{ep.path}"
                 ep.callback = getattr(self, name)
                 ep.pre_middleware = self.pre_middlewares + ep.pre_middleware
                 ep.post_middleware = ep.post_middleware + self.post_middlewares

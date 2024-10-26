@@ -1,14 +1,19 @@
+from inspect import signature
 from typing import Callable, Any
+
+from .response import Response
+from .request import Request, ITypeMapper
+from .enums import HttpMethod
 
 
 # types
-type PreMiddleware = Callable[[], None]
+type PreMiddleware = Callable[[Request], None]
 """
-PreMiddleware is a type alias for a callable that takes no arguments and returns None.
+PreMiddleware is a type alias for a callable that takes the request object and returns None.
 If you need to break the chain of middlewares, you can raise an exception.
 """
 
-type PostMiddleware = Callable[[Any], Any]
+type PostMiddleware = Callable[[Any], Any | Response]
 """
 PostMiddleware is a type alias for a callable that takes one argument and returns it.
 The argument and return type are the same. This is used to modify the response before it is sent.
@@ -16,17 +21,35 @@ The argument and return type are the same. This is used to modify the response b
 
 
 class Endpoint:
-    url: str
+    path: str
     method: str
     callback: Callable
     status_code: int = 200
+    headers: dict[str, str] = {}
     pre_middleware: list[PreMiddleware] = []
     post_middleware: list[PostMiddleware] = []
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, request: Request):
         for middleware in self.pre_middleware:
-            middleware()
-        res = self.callback(*args, **kwargs)
+            middleware(request)
+        kwargs = {}
+        params = signature(self.callback).parameters
+
+        for name, param in params.items():
+            if issubclass(param.annotation, Request):
+                kwargs[name] = request
+            elif issubclass(param.default, ITypeMapper):
+                type_mapper = param.default(param.annotation, request)
+                kwargs[name] = type_mapper.map()
+            else:
+                arg = param.default
+                if name in request.params:
+                    arg = request.params[name]
+                    if param.annotation != param.empty:
+                        arg = param.annotation(arg)
+                kwargs[name] = arg
+
+        res = self.callback(**kwargs)
         for middleware in self.post_middleware:
             res = middleware(res)
         return res
@@ -38,14 +61,16 @@ def endpoint(
     status_code: int = 200,
     pre_middleware: list[PreMiddleware] = [],
     post_middleware: list[PostMiddleware] = [],
+    headers: dict[str, str] = {},
 ):
     def decorator(func):
         ep = Endpoint()
-        ep.url = url
+        ep.path = url
         ep.method = method
         ep.status_code = status_code
         ep.pre_middleware = pre_middleware
         ep.post_middleware = post_middleware
+        ep.headers = headers
         ep.callback = func
         func.__endpoint__ = ep
         return func
@@ -53,21 +78,61 @@ def endpoint(
     return decorator
 
 
-def get(url):
-    return endpoint(url, "GET")
+def get(
+    url: str,
+    status_code: int = 200,
+    pre_middleware: list[PreMiddleware] = [],
+    post_middleware: list[PostMiddleware] = [],
+    headers: dict[str, str] = {},
+):
+    return endpoint(
+        url, HttpMethod.GET, status_code, pre_middleware, post_middleware, headers
+    )
 
 
-def post(url):
-    return endpoint(url, "POST")
+def post(
+    url: str,
+    status_code: int = 200,
+    pre_middleware: list[PreMiddleware] = [],
+    post_middleware: list[PostMiddleware] = [],
+    headers: dict[str, str] = {},
+):
+    return endpoint(
+        url, HttpMethod.POST, status_code, pre_middleware, post_middleware, headers
+    )
 
 
-def put(url):
-    return endpoint(url, "PUT")
+def put(
+    url: str,
+    status_code: int = 200,
+    pre_middleware: list[PreMiddleware] = [],
+    post_middleware: list[PostMiddleware] = [],
+    headers: dict[str, str] = {},
+):
+    return endpoint(
+        url, HttpMethod.PUT, status_code, pre_middleware, post_middleware, headers
+    )
 
 
-def delete(url):
-    return endpoint(url, "DELETE")
+def delete(
+    url: str,
+    status_code: int = 200,
+    pre_middleware: list[PreMiddleware] = [],
+    post_middleware: list[PostMiddleware] = [],
+    headers: dict[str, str] = {},
+):
+    return endpoint(
+        url, HttpMethod.DELETE, status_code, pre_middleware, post_middleware, headers
+    )
 
 
-def patch(url):
-    return endpoint(url, "PATCH")
+def patch(
+    url: str,
+    status_code: int = 200,
+    pre_middleware: list[PreMiddleware] = [],
+    post_middleware: list[PostMiddleware] = [],
+    headers: dict[str, str] = {},
+):
+    return endpoint(
+        url, HttpMethod.PATCH, status_code, pre_middleware, post_middleware, headers
+    )

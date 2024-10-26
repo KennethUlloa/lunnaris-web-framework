@@ -1,0 +1,7 @@
+{
+    "modules.init": [
+        "user.config",
+        "client.config",
+        "auth.config"
+    ]
+}
