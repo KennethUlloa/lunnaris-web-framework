@@ -1,5 +1,5 @@
-from dataclasses import dataclass, is_dataclass, asdict
 import json
+from dataclasses import dataclass, is_dataclass, asdict
 from lunnaris.application import Application, Serializer
 from lunnaris.controller import Controller
 from lunnaris.handler import get, post, put, delete
@@ -13,6 +13,7 @@ class ClientModel:
     id: int = None
     name: str
     age: int
+
 
 class ClientService:
     clients: list[ClientModel] = []
@@ -28,7 +29,7 @@ class ClientService:
     @classmethod
     def all(cls):
         return cls.clients
-    
+
     @classmethod
     def get(cls, id: int):
         for client in cls.clients:
@@ -82,27 +83,27 @@ class ClientController(Controller):
         if client:
             return client
         raise NotFound("Client not found")
-    
+
     @get("")
     def all(self):
         return self.service.all()
-    
+
     @put("{name}")
     def update(self, id: int, data: ClientModel = Json()):
         if self.service.update(id, data):
             return "Client updated"
         raise BadRequest("Error updating client")
-    
+
     @delete("/{id}")
     def delete(self, id: int):
         if self.service.delete(id):
             return "Client deleted"
         raise NotFound("Client not found")
 
-app = Application(
-    serializer=Serializer(default=dataclass_serializer)
-)
+
+app = Application(serializer=Serializer(default=dataclass_serializer))
 app.add_controller(ClientController(ClientService))
+
 
 async def run(scope, recieve, send):
     req = await asgi.read_request(scope, recieve)
