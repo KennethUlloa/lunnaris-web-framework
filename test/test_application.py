@@ -24,7 +24,6 @@ class TestApplication(TestCase):
     
     def test_request_not_found(self):
         app = Application(router=RouteMatcher())
-        print(app.router)
         req = Request("GET", "/")
         res = app.run(req)
 
@@ -68,6 +67,7 @@ class TestApplication(TestCase):
         self.assertEqual(res.headers["Content-Type"], "text/plain")
     
     def test_request_custom_exception_handler(self):
+        app = Application()
         class CustomException(Exception):
             pass
         
@@ -76,12 +76,10 @@ class TestApplication(TestCase):
             raise CustomException()
         
         def custom_handler(e):
-            print("Custom handler")
             return Response(418, b"I'm a teapot")
         
-        app = Application()
         app.add_function_handler(handler)
-        app.exception_handlers[CustomException] = custom_handler
+        app.add_exception_handler(CustomException, custom_handler)
 
         req = Request("GET", "/")
         res = app.run(req)

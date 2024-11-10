@@ -1,5 +1,5 @@
 from unittest import TestCase
-from lunnaris.request import Json, Request
+from lunnaris.request import Json, Request, Query
 
 
 class TestRequest(TestCase):
@@ -30,7 +30,7 @@ class TestJsonTypeMatcher(TestCase):
                 self.age = age
 
         expected = Client("John Doe", 22)
-        actual = Json(Client).map(req)
+        actual = Json().map(req, Client)
 
         self.assertIsInstance(actual, Client)
         self.assertEqual(expected.age, actual.age)
@@ -48,7 +48,7 @@ class TestJsonTypeMatcher(TestCase):
             pass
 
         with self.assertRaisesRegex(ValueError, "Wrong mimetype for converter"):
-            Json(Any).map(req)
+            Json().map(req, Any)
 
     def test_raise_error_on_empty_body(self):
         req = Request(
@@ -62,7 +62,7 @@ class TestJsonTypeMatcher(TestCase):
             pass
 
         with self.assertRaisesRegex(ValueError, "Empty body"):
-            Json(Any).map(req)
+            Json().map(req, Any)
 
     def test_raise_error_on_wrong_method(self):
         req = Request(
@@ -76,4 +76,44 @@ class TestJsonTypeMatcher(TestCase):
             pass
 
         with self.assertRaisesRegex(ValueError, "body"):
-            Json(Any).map(req)
+            Json().map(req, Any)
+
+
+class TestQueryMatcher(TestCase):
+    def test_parse_query_from_request(self):
+        req = Request(
+            "GET",
+            "",
+            query={"name": "John Doe", "age": "22"}
+        )
+
+        class Client:
+            def __init__(self, name, age):
+                self.name = name
+                self.age = age
+
+        expected = Client("John Doe", "22")
+        actual = Query().map(req, Client)
+
+        self.assertIsInstance(actual, Client)
+        self.assertEqual(expected.age, actual.age)
+        self.assertEqual(expected.name, actual.name)
+
+    def test_query_with_default(self):
+        req = Request(
+            "GET",
+            "",
+            query={"name": "John Doe"}
+        )
+
+        class Client:
+            def __init__(self, name, age):
+                self.name = name
+                self.age = age
+
+        expected = Client("John Doe", 33)
+        actual = Query({"age": 33}).map(req, Client)
+
+        self.assertIsInstance(actual, Client)
+        self.assertEqual(expected.age, actual.age)
+        self.assertEqual(expected.name, actual.name)

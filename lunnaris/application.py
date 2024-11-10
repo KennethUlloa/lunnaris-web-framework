@@ -19,11 +19,14 @@ class Application:
         pre_middlewares: list[PreMiddleware] = None,
         post_middlewares: list[PostMiddleware] = None,
     ):
-        self.router = router if router else RouteMatcher()
-        self.serializer = serializer if serializer else Serializer()
-        self.exception_handlers = exception_handlers if exception_handlers else {}
-        self.pre_middlewares = pre_middlewares if pre_middlewares else []
-        self.post_middlewares = post_middlewares if post_middlewares else []
+        self.router = router or RouteMatcher()
+        self.serializer = serializer or Serializer()
+        self.exception_handlers = exception_handlers or {}
+        self.pre_middlewares = pre_middlewares or []
+        self.post_middlewares = post_middlewares or []
+
+    def add_exception_handler(self, t: Type, callback: Callable):
+        self.exception_handlers[t] = callback
 
     def add_controller(self, controller: Controller):
         for handler in controller.get_handlers():
@@ -35,12 +38,11 @@ class Application:
         self.router.add_route(handler)
 
     def add_function_handler(self, handler: Callable):
-        handler = get_handler(handler)
-        if handler:
-            self.add_handler(handler)
-        else:
+        handler: RequestHandler | None = get_handler(handler, None)
+        if handler is None:
             raise ValueError("Invalid handler")
-
+        self.add_handler(handler)
+            
     def run(self, req: Request) -> Response:
         try:
             match = self.router.match(req.path, req.method)
@@ -49,28 +51,31 @@ class Application:
 
             handler, params = match
             req.params = MappingProxyType(params)
-            print("Handler headers", handler.headers)
             response = handler(req)
             return self.handle_response(response, handler.status_code, handler.headers)
         except Exception as e:
-            print("Init exception")
+            if not isinstance(e, HttpException):
+                raise e
+            
             status = InternalServerError.code
             message = str(InternalServerError())
             if isinstance(e, HttpException):
                 status = e.code
                 message = str(e)
+                if e.body:
+                    message += str(e.body)
             
             exception_type = type(e)
             if exception_type in self.exception_handlers:
-                print("Exception handler")
                 base = self.exception_handlers[exception_type](e)
-                print(base)
                 return self.handle_response(base, status, {})
 
             for t, h in self.exception_handlers.items():
                 if isinstance(e, t):
                     return self.handle_response(h(e), status, {})
 
+            message +=  f"\n{e.__class__.__name__}: {e}"
+            
             return Response(
                 status, message.encode(), {Header.CONTENT_TYPE: "text/plain"}
             )
@@ -78,12 +83,11 @@ class Application:
     def handle_response(self, response, status, headers) -> Response:
         if isinstance(response, Response):
             return response
-
-        res = Response(status, b"")
         body, content_type = self.serializer.serialize(response)
-        print(content_type)
-        res.body = body.encode()
-        res.headers.update(headers)
-        res.headers[Header.CONTENT_TYPE] = content_type
+        print(body)
+        body = body.encode()
+        h = {**headers}
+        if content_type:
+            h[Header.CONTENT_TYPE] = content_type
 
-        return res
+        return Response(status, body, h)

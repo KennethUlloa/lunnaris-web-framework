@@ -1,44 +1,110 @@
-from lunnaris.application import Application
+from dataclasses import dataclass, is_dataclass, asdict
+import json
+from lunnaris.application import Application, Serializer
 from lunnaris.controller import Controller
-from lunnaris.handler import get, post
+from lunnaris.handler import get, post, put, delete
 from lunnaris.request import Json
+from lunnaris.exceptions import BadRequest, NotFound
+from lunnaris import asgi
 
 
-def pre_middleware(req):
-    print("Pre middleware: Params:", req.params)
-
-
-
-def post_middleware(res):
-    print("Post middleware: Upper")
-    return res.upper()
-
+@dataclass(kw_only=True)
 class ClientModel:
-    def __init__(self, name: str, age: int):
-        self.name = name
-        self.age = age
+    id: int = None
+    name: str
+    age: int
+
+class ClientService:
+    clients: list[ClientModel] = []
+    last_id: int = 0
+
+    @classmethod
+    def save(cls, data: ClientModel):
+        cls.last_id += 1
+        data.id = int(cls.last_id)
+        cls.clients.append(data)
+        return True
+
+    @classmethod
+    def all(cls):
+        return cls.clients
+    
+    @classmethod
+    def get(cls, id: int):
+        for client in cls.clients:
+            if client.id == id:
+                return client
+        return None
+
+    @classmethod
+    def delete(cls, id: int):
+        for i, client in enumerate(cls.clients):
+            if client.id == id:
+                del cls.clients[i]
+                return True
+        return False
+
+    @classmethod
+    def update(cls, id: int, data: ClientModel):
+        for i, client in enumerate(cls.clients):
+            if client.id == id:
+                data.id = id
+                cls.clients[i] = data
+                return True
+        return False
 
 
-class ExampleController(Controller):
-    __name__ = "example"
-    pre_middlewares = [pre_middleware]
-    post_middlewares = [post_middleware]
+def dataclass_serializer(data):
+    print(data)
+    if is_dataclass(data):
+        return asdict(data), "application/json"
+    if isinstance(data, dict):
+        return data, "application/json"
+    return str(data), "text/plain"
 
-    def __init__(self, service):
+
+class ClientController(Controller):
+    __route__ = "clients"
+
+    def __init__(self, service: ClientService, **kwargs):
+        super().__init__(**kwargs)
         self.service = service
 
     @post("", status_code=201)
-    def get_example(self, data: ClientModel = Json):
-        return self.service(data)
+    def create(self, data: ClientModel = Json()):
+        if self.service.save(data):
+            return "Client created"
+        raise BadRequest("Client already exists")
 
-    @get("/{name}")
-    def post_example(self, name: str):
-        return f"Hello, {name}!"
+    @get("/{id}")
+    def get_(self, id: int):
+        client = self.service.get(id)
+        if client:
+            return client
+        raise NotFound("Client not found")
     
-    @get("/query")
-    def get_query(self):
-        return 
+    @get("")
+    def all(self):
+        return self.service.all()
+    
+    @put("{name}")
+    def update(self, id: int, data: ClientModel = Json()):
+        if self.service.update(id, data):
+            return "Client updated"
+        raise BadRequest("Error updating client")
+    
+    @delete("/{id}")
+    def delete(self, id: int):
+        if self.service.delete(id):
+            return "Client deleted"
+        raise NotFound("Client not found")
 
+app = Application(
+    serializer=Serializer(default=dataclass_serializer)
+)
+app.add_controller(ClientController(ClientService))
 
-def service(data: ClientModel):
-    return f"Hello, {data.name}! You are {data.age} years old."
+async def run(scope, recieve, send):
+    req = await asgi.read_request(scope, recieve)
+    res = app.run(req)
+    await asgi.send_response(res, send)

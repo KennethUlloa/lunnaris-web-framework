@@ -1,39 +1,65 @@
+from dataclasses import asdict, is_dataclass
 import json
-from typing import Type, Callable, Any
+from typing import Type, Callable, Any, Union, Protocol
 
 
-type SerializerCallback = Callable[[Any], tuple[str, str]]
+type SerializerCallback = Callable[[Any], tuple[Union[str, dict], str]]
 
+class ExtendedSerializer(Protocol):
+    def match(self, obj: Any) -> bool:
+        pass
+
+    def serialize(self, obj: Any) -> Union[str, dict]:
+        pass
 
 class Serializer:
-    def __init__(self):
-        self.__types: dict[Type, SerializerCallback] = {}
-    
-    def serialize(self, obj: Any) -> tuple[str, str]:
-        if isinstance(obj, str):
-            return obj, "text/html"
-        
-        if type(obj) in [int, float, bool]:
-            return str(obj), "text/plain"
+    def __init__(
+        self,
+        types: dict[Type, tuple[SerializerCallback, str]] = None,
+        extended_serializers: list[ExtendedSerializer] = None,
+    ):
+        self.__types: dict[Type, SerializerCallback] = types or {}
+        self.extended_serializers = extended_serializers or []
 
-        if type(obj) in self.__types:
-            print("here", obj)
-            return self.__types[type(obj)](obj)
-        
-        for t, callback in self.__types.items():
-            if isinstance(obj, t):
-                return callback(obj)
-        
-        if isinstance(obj, dict):
-            return json.dumps(obj), "application/json"
-        
+    def serialize(self, obj: Any) -> str:
         if isinstance(obj, list):
-            return json.dumps([self.serialize(i)[0] for i in obj]), "application/json"
-        
+            return json.dumps([self._serialize_single(o) for o in obj]), 'application/json'
+        else:
+            serialized = self._serialize_single(obj)
+            if isinstance(serialized, str):
+                return serialized
+            elif isinstance(serialized, dict):
+                return json.dumps(serialized)
+
         raise TypeError(f"Could not serialize {obj}")
 
-    def add_serializer(self, t: Type, callback: SerializerCallback):
+    def add_serializer(self, t: Type, callback: SerializerCallback, mimetype: str = None):
         self.__types[t] = callback
+
+    def add_object_serializer(self, object_serializer: ExtendedSerializer):
+        self.extended_serializers.append(object_serializer)
+
+    def _serialize_single(self, obj: Any) -> Union[str, dict]:
+        if isinstance(obj, (str, dict)):
+            return obj
+        elif isinstance(obj, (int, float, bool, bytes)):
+            return str(obj)
+        elif is_dataclass(obj):
+            return asdict(obj)
+        else:
+            for obj_type, callback in self.__types.items():
+                if isinstance(obj, obj_type):
+                    serialized = callback(obj)
+                    if isinstance(serialized, (str, dict)):
+                        return serialized
+            
+            for extended_serializer in self.extended_serializers:
+                if extended_serializer.match(obj):
+                    result = extended_serializer.serialize(obj)
+                    if isinstance(result, (str, dict)):
+                        return result
+                    
+            raise TypeError(f"Could not serialize {obj}")
 
     def __str__(self) -> str:
         return str(self.__types)

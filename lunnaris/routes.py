@@ -9,6 +9,9 @@ class RouteNode:
 
     def __str__(self) -> str:
         return f"Node({self.children}, {self.is_terminal})"
+    
+    def __repr__(self) -> str:
+        return str(self)
 
 class RouteMatcher:
     def __init__(self):
