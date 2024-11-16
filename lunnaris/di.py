@@ -102,9 +102,21 @@ class DIContainer:
         for name, annotations in dep.annotations.items():
             values[name] = self.resolve(annotations)
 
-        # obj = dep(**values)
-
-        # if dep.cached:
-        #    dep.cached_value = obj
-
         return dep(**values)
+
+    def resolve_inners(self, t: Type):
+        values = {}
+        for name, param in signature(t).parameters.items():
+            if param.default != param.empty:
+                if isinstance(param.default, Lazy):
+                    symbol = param.default()
+                    if symbol in self.__dependencies:
+                        values[name] = self.resolve(symbol)
+                    else:
+                        values[name] = symbol
+                else:
+                    values[name] = param.default
+            elif param.annotation != param.empty:
+                values[name] = self.resolve(param.annotation)
+        
+        return t(**values)

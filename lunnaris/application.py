@@ -8,6 +8,7 @@ from .request import Request
 from .handler import RequestHandler, PostMiddleware, PreMiddleware, get_handler
 from .exceptions import HttpException, NotFound
 from .serializer import Serializer
+from .di import DIContainer
 
 
 def exception_handler(e: Exception) -> Response:
@@ -38,13 +39,23 @@ class Application:
             },
             **(exception_handlers or {}),
         }
+        self.container = DIContainer()
+        self.__controllers: list[Type[Controller]] = []
 
     def add_exception_handler(self, t: Type, callback: Callable):
         self.exception_handlers[t] = callback
 
-    def add_controller(self, controller: Controller):
-        for handler in controller.get_handlers():
-            self.add_handler(handler)
+    def add_controller(self, controller: Type[Controller]):
+        if not issubclass(controller, Controller):
+            raise ValueError("Invalid controller")
+        self.__controllers.append(controller)
+
+    def init(self):
+        for controller_type in self.__controllers:
+            instance = self.container.resolve_inners(controller_type)
+            for handler in instance.get_handlers():
+                self.add_handler(handler)
+        
 
     def add_handler(self, handler: RequestHandler):
         handler.add_pre_middlewares(self.pre_middlewares, "before")

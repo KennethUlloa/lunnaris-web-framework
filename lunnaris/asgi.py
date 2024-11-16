@@ -52,3 +52,11 @@ async def send_response(response: Response, send) -> None:
         "type": "http.response.body",
         "body": response.body,
     })
+
+def create_asgi_app(app):
+    async def asgi_app(scope, recieve, send):
+        req = await read_request(scope, recieve)
+        res = app.run(req)
+        await send_response(res, send)
+    
+    return asgi_app

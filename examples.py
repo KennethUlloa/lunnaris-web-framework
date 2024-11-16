@@ -1,4 +1,3 @@
-import json
 from dataclasses import dataclass, is_dataclass, asdict
 from lunnaris.application import Application, Serializer
 from lunnaris.controller import Controller
@@ -74,7 +73,7 @@ class ClientController(Controller):
     @post("", status_code=201)
     def create(self, data: ClientModel = Json()):
         if self.service.save(data):
-            return "Client created"
+            return "Client created", 201, {"x-api-key": "123"}
         raise BadRequest("Client already exists")
 
     @get("/{id}")
@@ -88,7 +87,7 @@ class ClientController(Controller):
     def all(self):
         return self.service.all()
 
-    @put("{name}")
+    @put("{id}")
     def update(self, id: int, data: ClientModel = Json()):
         if self.service.update(id, data):
             return "Client updated"
@@ -101,11 +100,10 @@ class ClientController(Controller):
         raise NotFound("Client not found")
 
 
-app = Application(serializer=Serializer(default=dataclass_serializer))
-app.add_controller(ClientController(ClientService))
-
-
-async def run(scope, recieve, send):
-    req = await asgi.read_request(scope, recieve)
-    res = app.run(req)
-    await asgi.send_response(res, send)
+def run():
+    app = Application(serializer=Serializer())
+    app.container.add_dependency(ClientService)
+    app.add_controller(ClientController)
+    app.init()
+    return asgi.create_asgi_app(app)
+    
