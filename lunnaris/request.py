@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from types import MappingProxyType
 from typing import Any, Type, Generic, TypeVar
 from .enums import MimeType, Method, Header
+from .types import Headers
 
 
 T = TypeVar("T")
@@ -13,14 +14,14 @@ class Request:
         self,
         method: str,
         path: str,
-        headers: dict[str, str] = None,
+        headers: dict[str, str] | Headers = None,
         body: bytes | str | None = None,
         query: dict[str, str] = None,
         params: dict[str, str] = None,
     ):
         self.method = method
         self.path = path
-        self.headers = MappingProxyType(headers or {})
+        self.headers = headers if isinstance(headers, Headers) else Headers(headers or {}, True)
         self.body = body
         self.query = MappingProxyType(query or {})
         self.params = MappingProxyType(params or {})

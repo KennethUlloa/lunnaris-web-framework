@@ -6,8 +6,17 @@ from .routes import RouteMatcher
 from .response import Response
 from .request import Request
 from .handler import RequestHandler, PostMiddleware, PreMiddleware, get_handler
-from .exceptions import HttpException, NotFound, InternalServerError
+from .exceptions import HttpException, NotFound
 from .serializer import Serializer
+
+
+def exception_handler(e: Exception) -> Response:
+    body = f"500 - Internal Server Error: {e.__class__.__name__}({str(e)})"
+    return Response(500, body, {Header.CONTENT_TYPE: "text/plain"})
+
+
+def handle_http_exception(e: HttpException) -> Response:
+    return Response(e.code, str(e), {Header.CONTENT_TYPE: "text/plain"})
 
 
 class Application:
@@ -21,9 +30,14 @@ class Application:
     ):
         self.router = router or RouteMatcher()
         self.serializer = serializer or Serializer()
-        self.exception_handlers = exception_handlers or {}
         self.pre_middlewares = pre_middlewares or []
         self.post_middlewares = post_middlewares or []
+        self.exception_handlers = {
+            **{
+                HttpException: handle_http_exception,
+            },
+            **(exception_handlers or {}),
+        }
 
     def add_exception_handler(self, t: Type, callback: Callable):
         self.exception_handlers[t] = callback
@@ -42,52 +56,42 @@ class Application:
         if handler is None:
             raise ValueError("Invalid handler")
         self.add_handler(handler)
-            
+
     def run(self, req: Request) -> Response:
         try:
             match = self.router.match(req.path, req.method)
             if not match:
-                raise NotFound(f"Resource {req.path} not found")
+                raise NotFound(f"Path {req.path} not found")
 
             handler, params = match
             req.params = MappingProxyType(params)
-            response = handler(req)
-            return self.handle_response(response, handler.status_code, handler.headers)
+            return self.handle_response(handler(req))
         except Exception as e:
-            if not isinstance(e, HttpException):
-                raise e
-            
-            status = InternalServerError.code
-            message = str(InternalServerError())
-            if isinstance(e, HttpException):
-                status = e.code
-                message = str(e)
-                if e.body:
-                    message += str(e.body)
-            
-            exception_type = type(e)
-            if exception_type in self.exception_handlers:
-                base = self.exception_handlers[exception_type](e)
-                return self.handle_response(base, status, {})
+            return self.handle_exception(e)
 
-            for t, h in self.exception_handlers.items():
-                if isinstance(e, t):
-                    return self.handle_response(h(e), status, {})
-
-            message +=  f"\n{e.__class__.__name__}: {e}"
-            
-            return Response(
-                status, message.encode(), {Header.CONTENT_TYPE: "text/plain"}
-            )
-
-    def handle_response(self, response, status, headers) -> Response:
+    def handle_response(self, response, status=200, headers={}) -> Response:
         if isinstance(response, Response):
             return response
-        body, content_type = self.serializer.serialize(response)
-        print(body)
-        body = body.encode()
-        h = {**headers}
-        if content_type:
-            h[Header.CONTENT_TYPE] = content_type
 
-        return Response(status, body, h)
+        c_status = status
+        c_headers = headers
+        c_body = response
+
+        if isinstance(response, tuple):
+            if len(response) == 2:
+                c_body, c_status = response
+            elif len(response) == 3:
+                c_body, c_status, _headers = response
+                c_headers.update(_headers)
+
+        c_body, content_type = self.serializer.serialize(c_body)
+        c_headers[Header.CONTENT_TYPE] = content_type
+        return Response(c_status, c_body, c_headers)
+
+    def handle_exception(self, e: Exception) -> Response:
+        for t, callback in self.exception_handlers.items():
+            if isinstance(e, t):
+                return self.handle_response(
+                    callback(e), 500, {Header.CONTENT_TYPE: "text/plain"}
+                )
+        return exception_handler(e)

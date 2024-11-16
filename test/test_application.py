@@ -1,5 +1,5 @@
 from unittest import TestCase
-from lunnaris.application import Application
+from lunnaris.application import Application, Serializer
 from lunnaris.handler import get
 from lunnaris.request import Request
 from lunnaris.response import Response
@@ -29,7 +29,7 @@ class TestApplication(TestCase):
 
         self.assertIsInstance(res, Response)
         self.assertEqual(res.status_code, 404)
-        self.assertEqual(res.body, b"404 - Resource not found")
+        self.assertEqual(res.body, b"404 - Not found: Path / not found")
         self.assertEqual(res.headers["Content-Type"], "text/plain")
     
     def test_request_internal_server_error(self):
@@ -44,7 +44,7 @@ class TestApplication(TestCase):
 
         self.assertIsInstance(res, Response)
         self.assertEqual(res.status_code, 500)
-        self.assertEqual(res.body, b"500 - Internal server error")
+        self.assertEqual(res.body, b"500 - Internal Server Error: ValueError(Error)")
         self.assertEqual(res.headers["Content-Type"], "text/plain")
     
     def test_request_custom_exception(self):
@@ -63,7 +63,7 @@ class TestApplication(TestCase):
 
         self.assertIsInstance(res, Response)
         self.assertEqual(res.status_code, 500)
-        self.assertEqual(res.body, b"500 - Internal server error")
+        self.assertEqual(res.body, b"500 - Internal Server Error: CustomException()")
         self.assertEqual(res.headers["Content-Type"], "text/plain")
     
     def test_request_custom_exception_handler(self):
@@ -114,16 +114,21 @@ class TestApplication(TestCase):
             return DummyClass("John Doe")
         
         def custom_serializer(data):
-            return f"<name>{data.name}</name>", "application/xml"
-        
-        app = Application()
-        app.serializer.add_serializer(DummyClass, custom_serializer)
+            return f"<name>{data.name}</name>"
+        serializer = Serializer()
+        serializer.add_serializer(DummyClass, custom_serializer)
+        app = Application(
+            serializer=serializer
+        )
         app.add_function_handler(handler)
 
         req = Request("GET", "/")
         res = app.run(req)
 
+        print(res.body)
+        print(res.status_code)
+
         self.assertIsInstance(res, Response)
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.body, b'<name>John Doe</name>')
-        self.assertEqual(res.headers["Content-Type"], "application/xml")
+        self.assertEqual(res.headers["Content-Type"], "text/html")

@@ -1,17 +1,25 @@
 class HttpException(Exception):
     code: int
     title: str
-    body: bytes | str
+    message: bytes | str
 
-    def __init__(self, title: str, code: int, body: bytes | str) -> None:
+    def __init__(self, title: str, code: int, message: str) -> None:
         super().__init__(f"{code} - {title}")
         self.code = code
-        self.title = title
-        self.body = body
+        self.title = title or f"{code} - {self.title}"
+        self.message = message
+    
+    def __repr__(self) -> str:
+        if self.message:
+            return f"{self.code} - {self.title}: {self.message}"
+        return f"{self.code} - {self.title}"
+
+    def __str__(self) -> str:
+        return self.__repr__()
 
 
 class DefinedHttpException(HttpException):
-    def __init__(self, body: bytes | str = b""):
+    def __init__(self, body: str = ""):
         super().__init__(self.title, self.code, body)
 
 
@@ -32,7 +40,7 @@ class Forbidden(DefinedHttpException):
 
 class NotFound(DefinedHttpException):
     code = 404
-    title = "Resource not found"
+    title = "Not found"
 
 
 class InternalServerError(DefinedHttpException):

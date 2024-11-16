@@ -1,0 +1,13 @@
+[project]
+name = "lunnaris"
+version = "0.1.0"
+requires-python = ">= 3.10"
+authors = [
+    { name = "Kenneth Ulloa", email = "ulloakenth@gmail.com" }
+]
+description = "ASGI Web Framework for Python"
+keywords = ["asgi", "web", "framework"]
+
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"

@@ -3,8 +3,6 @@ import json
 from typing import Type, Callable, Any, Union, Protocol
 
 
-type SerializerCallback = Callable[[Any], tuple[Union[str, dict], str]]
-
 class ExtendedSerializer(Protocol):
     def match(self, obj: Any) -> bool:
         pass
@@ -12,38 +10,43 @@ class ExtendedSerializer(Protocol):
     def serialize(self, obj: Any) -> Union[str, dict]:
         pass
 
+
+SerializerCallback = Callable[[Any], Union[str, dict]]
+
+
 class Serializer:
     def __init__(
         self,
-        types: dict[Type, tuple[SerializerCallback, str]] = None,
+        types: dict[Type, SerializerCallback] = None,
         extended_serializers: list[ExtendedSerializer] = None,
     ):
         self.__types: dict[Type, SerializerCallback] = types or {}
         self.extended_serializers = extended_serializers or []
 
-    def serialize(self, obj: Any) -> str:
+    def serialize(self, obj: Any) -> tuple[str, str]:
         if isinstance(obj, list):
-            return json.dumps([self._serialize_single(o) for o in obj]), 'application/json'
+            return json.dumps([self._serialize_single(o) for o in obj]), "application/json"
         else:
             serialized = self._serialize_single(obj)
-            if isinstance(serialized, str):
-                return serialized
+            if isinstance(serialized, (str, bytes, int, float, bool)):
+                if isinstance(serialized, bytes):
+                    serialized = serialized.decode()
+                return str(serialized), "text/html"
             elif isinstance(serialized, dict):
-                return json.dumps(serialized)
+                return json.dumps(serialized), "application/json"
 
         raise TypeError(f"Could not serialize {obj}")
 
-    def add_serializer(self, t: Type, callback: SerializerCallback, mimetype: str = None):
+    def add_serializer(self, t: Type, callback: SerializerCallback):
+        print("Some type", t)
         self.__types[t] = callback
 
     def add_object_serializer(self, object_serializer: ExtendedSerializer):
         self.extended_serializers.append(object_serializer)
 
-    def _serialize_single(self, obj: Any) -> Union[str, dict]:
-        if isinstance(obj, (str, dict)):
-            return obj
-        elif isinstance(obj, (int, float, bool, bytes)):
-            return str(obj)
+    def _serialize_single(self, obj: Any) -> Union[str, dict, int, float, bool]:
+        if isinstance(obj, (str, dict, bytes, int, float, bool)):
+            return obj  # Directly return primitive types without converting them to strings
         elif is_dataclass(obj):
             return asdict(obj)
         else:
